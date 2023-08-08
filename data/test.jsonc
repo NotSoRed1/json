@@ -1,0 +1,34 @@
+{
+    // comment
+    "test": "\n\r\t\b\f\"\\ \u4E10", 
+    "emoji": "😁",
+    "emoji2": "\uD83D\uDE10",
+    "numbah": 2334.0,
+    "boolean": false,
+    "object": {
+        // another comment
+        "string": "test"
+    },
+    "array": [
+        "str", 
+        20.0, 
+        {
+            "omg": true,
+            "books": [
+                "learn c in 10 days"
+            ]
+        }
+    ],
+    "info": {
+        "id": 34234234,
+        "sth2": {
+            "file": "json"
+        },
+        "test": [
+            15.0, 
+            true, 
+            false, 
+            null
+        ]
+    }
+}
