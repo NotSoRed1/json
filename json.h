@@ -74,7 +74,7 @@ typedef struct JsonAllocator {
 
 JsonError json_allocator_init(JsonAllocator* allocator);
 void* json_allocator_alloc(JsonAllocator* allocator, uint64_t size);
-void json_alloactor_free(JsonAllocator* allocator);
+void json_allocator_free(JsonAllocator* allocator);
 
 
 
@@ -104,9 +104,9 @@ uint8_t json_string_eq_cstr(JsonString lhs, const char* rhs);
 // ======================================================
 
 
-JsonError json_from_buffer(JsonValue* out, void* buffer, uint64_t length, JsonAllocator* allocator);
-JsonError json_from_cstr(JsonValue* out, const char* cstr, JsonAllocator* allocator);
-JsonError json_from_file(JsonValue* out, const char* path, JsonAllocator* allocator);
+JsonError json_from_buffer(JsonValue** out, void* buffer, uint64_t length, JsonAllocator* allocator);
+JsonError json_from_cstr(JsonValue** out, const char* cstr, JsonAllocator* allocator);
+JsonError json_from_file(JsonValue** out, const char* path, JsonAllocator* allocator);
 
 
 JsonError json_print(JsonValue* json);
@@ -121,9 +121,9 @@ uint8_t json_is_object(JsonValue*  value);
 uint8_t json_is_array(JsonValue*   value);
 
 
-JsonError json_get_string(JsonValue* value, JsonString* out);
-JsonError json_get_number(JsonValue* value, double* out);
-JsonError json_get_boolean(JsonValue* value, uint8_t* out);
+JsonError json_get_string(JsonValue* value, JsonString** out);
+JsonError json_get_number(JsonValue* value, double** out);
+JsonError json_get_boolean(JsonValue* value, uint8_t** out);
 
 
 JsonError json_create_string(JsonValue** out, const char* str, JsonAllocator* alloc);
@@ -141,8 +141,8 @@ uint8_t   json_object_contains(JsonValue* object, const char* key);
 JsonError json_object_push(JsonValue* object, const char* key, JsonValue* value, JsonAllocator* alloc);
 JsonError json_object_remove(JsonValue* object, const char* key);
 JsonError json_object_remove_at(JsonValue* object, uint64_t index);
-JsonError json_object_get(JsonValue* object, const char* key, JsonValue* out);
-JsonError json_object_get_at(JsonValue* object, uint64_t index, JsonValue* out);
+JsonError json_object_get(JsonValue* object, const char* key, JsonValue** out);
+JsonError json_object_get_at(JsonValue* object, uint64_t index, JsonValue** out);
 JsonError json_object_length(JsonValue* object, uint64_t* length);
 JsonError json_object_iter_create(JsonValue* object, JsonObjectNode** out);
 void      json_object_iter_next(JsonObjectNode** it);
@@ -153,7 +153,7 @@ void      json_object_iter_next(JsonObjectNode** it);
 */
 JsonError json_array_push(JsonValue* array, JsonValue* value, JsonAllocator* alloc);
 JsonError json_array_remove_at(JsonValue* array, uint64_t index);
-JsonError json_array_get_at(JsonValue* array, uint64_t index, JsonValue* out);
+JsonError json_array_get_at(JsonValue* array, uint64_t index, JsonValue** out);
 JsonError json_array_length(JsonValue* array, uint64_t* out);
 JsonError json_array_iter_create(JsonValue* object, JsonArrayNode** out);
 void      json_array_iter_next(JsonArrayNode** it);

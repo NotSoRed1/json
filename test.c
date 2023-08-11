@@ -56,8 +56,11 @@ void test_json_object() {
     json_check(json_object_push(json, "name", name, &allocator));
     json_check(json_print(json));
 
-    JsonValue ret;
+    JsonValue* ret = NULL;
     json_check(json_object_get(json, "age", &ret));
+    double* f = NULL;
+    json_check(json_get_number(ret, &f));
+
     json_check(json_object_get(json, "name", &ret));
     json_check(json_object_get_at(json, 0, &ret));
     json_check(json_object_get_at(json, 1, &ret));
@@ -75,7 +78,7 @@ void test_json_object() {
         json_object_iter_next(&it);
     }
 
-    json_alloactor_free(&allocator);
+    json_allocator_free(&allocator);
 
 }
 
@@ -124,7 +127,7 @@ void test_json_array() {
     json_check(json_print(json));
     printf("\n");
 
-    JsonValue ret;
+    JsonValue* ret = NULL;
     json_check(json_array_get_at(json, 0, &ret));
     json_check(json_array_get_at(json, 1, &ret));
     printf("\n");
@@ -136,7 +139,7 @@ void test_json_array() {
         json_array_iter_next(&it);
     }
 
-    json_alloactor_free(&allocator);
+    json_allocator_free(&allocator);
 }
 
 int main(void) {
@@ -146,11 +149,11 @@ int main(void) {
 
     uint32_t iterations = 1;
     for (uint32_t i = 0; i < iterations; i++) {
-        JsonValue json;
+        JsonValue* json = NULL;
 
         json_check(json_from_file(&json, "./data/canada.json", &allocator));
         // system("chcp 65001");
-        // json_check(json_print(&json));
+        // json_check(json_print(json));
         // json_check(json_write_to_file(&json, "./data/canada-formated.json"));
     }
 
@@ -164,7 +167,7 @@ int main(void) {
     printf("\n\n");
     test_json_array();
 
-    json_alloactor_free(&allocator);
+    json_allocator_free(&allocator);
 
     return 0;
 }

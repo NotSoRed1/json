@@ -132,7 +132,7 @@ void* json_allocator_alloc(JsonAllocator* allocator, u64 size) {
 }
 
 
-void json_alloactor_free(JsonAllocator* allocator) {
+void json_allocator_free(JsonAllocator* allocator) {
     JsonAllocatorNode* it = allocator->head;
 
     while (it) {
@@ -822,7 +822,7 @@ JsonObject json_parser_parse_object(JsonParser* parser, JsonError* error);
 JsonArrayNode* json_parser_parse_array_node(JsonParser* parser, JsonError* error);
 JsonArray json_parser_parse_array(JsonParser* parser, JsonError* error);
 
-JsonError json_parser_parse(JsonParser* parser, JsonValue* out);
+JsonError json_parser_parse(JsonParser* parser, JsonValue** out);
 
 
 
@@ -1043,15 +1043,16 @@ JsonArray json_parser_parse_array(JsonParser* parser, JsonError* error) {
 }
 
 
-JsonError json_parser_parse(JsonParser* parser, JsonValue* out) {
+JsonError json_parser_parse(JsonParser* parser, JsonValue** out) {
     JsonError error = JSON_ERROR_NONE;
+    *out = (JsonValue*)json_allocator_alloc(parser->allocator, sizeof(JsonValue));
 
     if (json_parser_current(parser).kind == JSON_TK_LCURLY) {
-        out->kind = JSON_VK_OBJECT;
-        out->object = json_parser_parse_object(parser, &error);
+        (*out)->kind = JSON_VK_OBJECT;
+        (*out)->object = json_parser_parse_object(parser, &error);
     } else if (json_parser_current(parser).kind == JSON_TK_LBRACKET) {
-        out->kind = JSON_VK_ARRAY;
-        out->array = json_parser_parse_array(parser, &error);
+        (*out)->kind = JSON_VK_ARRAY;
+        (*out)->array = json_parser_parse_array(parser, &error);
     } else {
         json_repport_error(json_error_strings[JSON_ERROR_INVALID_JSON]);
         error = JSON_ERROR_INVALID_JSON;
@@ -1076,20 +1077,19 @@ typedef struct {
 JsonWriter json_writer_init();
 void json_writer_free(JsonWriter* writer);
 
-void write_bytes(JsonWriter* writer, u8* buffer, u64 length);
-void write_string(JsonWriter* writer, JsonString string);
-void write_cstr(JsonWriter* writer, const char* cstr);
-void write_tabs(JsonWriter* writer, u32 count);
-void write_number(JsonWriter* writer, f64 number);
-void write_boolean(JsonWriter* writer, b8 boolean);
-void write_tabs(JsonWriter* writer, u32 count);
+void json_write_bytes(JsonWriter* writer, u8* buffer, u64 length);
+void json_write_string(JsonWriter* writer, JsonString string);
+void json_write_cstr(JsonWriter* writer, const char* cstr);
+void json_write_tabs(JsonWriter* writer, u32 count);
+void json_write_number(JsonWriter* writer, f64 number);
+void json_write_boolean(JsonWriter* writer, b8 boolean);
 
-void write_json_key(JsonWriter* writer, JsonString key);
-void write_json_value(JsonWriter* writer, JsonValue value, i32 level, b8 is_array);
-void write_json_key_value(JsonWriter* writer, JsonObjectNode* entry, i32 level);
-void write_json_object(JsonWriter* writer, JsonObject object, i32 level);
-void write_json_array(JsonWriter* writer, JsonArray array, i32 level);
-JsonError write_json(JsonValue* json, JsonWriter* writer);
+void json_write_key(JsonWriter* writer, JsonString key);
+void json_write_value(JsonWriter* writer, JsonValue value, i32 level, b8 is_array);
+void json_write_key_value(JsonWriter* writer, JsonObjectNode* entry, i32 level);
+void json_write_object(JsonWriter* writer, JsonObject object, i32 level);
+void json_write_array(JsonWriter* writer, JsonArray array, i32 level);
+JsonError json_write(JsonValue* json, JsonWriter* writer);
 
 
 JsonWriter json_writer_init() {
@@ -1106,7 +1106,7 @@ void json_writer_free(JsonWriter* writer) {
 }
 
 
-void write_bytes(JsonWriter* writer, u8* buffer, u64 length) {
+void json_write_bytes(JsonWriter* writer, u8* buffer, u64 length) {
     for (u64 i = 0; i < length; i++) {
         u8 ch = buffer[i];
 
@@ -1120,14 +1120,14 @@ void write_bytes(JsonWriter* writer, u8* buffer, u64 length) {
 }
 
 
-void write_string(JsonWriter* writer, JsonString string) {
+void json_write_string(JsonWriter* writer, JsonString string) {
     darray_push(writer->buffer, '"');
-    write_bytes(writer, string.buffer, string.length);
+    json_write_bytes(writer, string.buffer, string.length);
     darray_push(writer->buffer, '"');
 }
 
 
-void write_cstr(JsonWriter* writer, const char* cstr) {
+void json_write_cstr(JsonWriter* writer, const char* cstr) {
     u64 length = strlen(cstr);
 
     for (u64 i = 0; i < length; i++) {
@@ -1137,142 +1137,142 @@ void write_cstr(JsonWriter* writer, const char* cstr) {
 }
 
 
-void write_tabs(JsonWriter* writer, u32 count) {
+void json_write_tabs(JsonWriter* writer, u32 count) {
     for (i32 i = 0; i < count; i++) {
         darray_push(writer->buffer, '\t');
     }
 }
 
 
-void write_number(JsonWriter* writer, f64 number) {
+void json_write_number(JsonWriter* writer, f64 number) {
     u64 length = snprintf(NULL, 0, "%f", number);
 
     u8* buffer = darray_init(u8, length + 1);
     sprintf((char*)buffer, "%f", number);
 
-    write_bytes(writer, buffer, length);
+    json_write_bytes(writer, buffer, length);
 
     darray_free(buffer);
 }
 
 
-void write_boolean(JsonWriter* writer, b8 boolean) {
+void json_write_boolean(JsonWriter* writer, b8 boolean) {
     if (boolean == false) {
-        write_cstr(writer, "false");
+        json_write_cstr(writer, "false");
     } else {
-        write_cstr(writer, "true");
+        json_write_cstr(writer, "true");
     }
 }
 
 
-void write_json_key(JsonWriter* writer, JsonString key) {
-    write_string(writer, key);
+void json_write_key(JsonWriter* writer, JsonString key) {
+    json_write_string(writer, key);
 }
 
 
-void write_json_value(JsonWriter* writer, JsonValue value, i32 level, b8 is_array) {
+void json_write_value(JsonWriter* writer, JsonValue value, i32 level, b8 is_array) {
     if (is_array) {
-        write_tabs(writer, level);
+        json_write_tabs(writer, level);
     }
 
     switch (value.kind) {
         case JSON_VK_OBJECT:
         {
-            write_json_object(writer, value.object, level + 1);
+            json_write_object(writer, value.object, level + 1);
         } break;
         case JSON_VK_ARRAY:
         {
-            write_json_array(writer, value.array, level + 1);
+            json_write_array(writer, value.array, level + 1);
         } break;
         case JSON_VK_NUMBER:
         {
-            write_number(writer, value.number);
+            json_write_number(writer, value.number);
         } break;
         case JSON_VK_STRING:
         {
-            write_string(writer, value.string);
+            json_write_string(writer, value.string);
         } break;
         case JSON_VK_BOOLEAN:
         {
-            write_boolean(writer, value.boolean);
+            json_write_boolean(writer, value.boolean);
         } break;
         case JSON_VK_NULL:
         {
-            write_cstr(writer, "null");
+            json_write_cstr(writer, "null");
         } break;
         break;
     }
 }
 
 
-void write_json_key_value(JsonWriter* writer, JsonObjectNode* entry, i32 level) {
-    write_tabs(writer, level);
+void json_write_key_value(JsonWriter* writer, JsonObjectNode* entry, i32 level) {
+    json_write_tabs(writer, level);
 
-    write_json_key(writer, entry->key);
-    write_cstr(writer, ": ");
-    write_json_value(writer, *entry->value, level, false);
+    json_write_key(writer, entry->key);
+    json_write_cstr(writer, ": ");
+    json_write_value(writer, *entry->value, level, false);
 }
 
 
-void write_json_object(JsonWriter* writer, JsonObject object, i32 level) {
+void json_write_object(JsonWriter* writer, JsonObject object, i32 level) {
     if (!object) {
-        write_cstr(writer, "{}");
+        json_write_cstr(writer, "{}");
         return;
     }
 
-    write_cstr(writer, "{\n");
+    json_write_cstr(writer, "{\n");
 
     JsonObjectNode* it = object;
     while (it) {
-        write_json_key_value(writer, it, level);
+        json_write_key_value(writer, it, level);
         it = it->next;
 
         if (it) {
-            write_cstr(writer, ",");
+            json_write_cstr(writer, ",");
         }
 
-        write_cstr(writer, "\n");
+        json_write_cstr(writer, "\n");
     }
 
-    write_tabs(writer, level - 1);
-    write_cstr(writer, "}");
+    json_write_tabs(writer, level - 1);
+    json_write_cstr(writer, "}");
 }
 
 
-void write_json_array(JsonWriter* writer, JsonArray array, i32 level) {
+void json_write_array(JsonWriter* writer, JsonArray array, i32 level) {
     if (!array) {
-        write_cstr(writer, "[]");
+        json_write_cstr(writer, "[]");
         return;
     }
 
-    write_cstr(writer, "[\n");
+    json_write_cstr(writer, "[\n");
 
     JsonArrayNode* it = array;
     while (it) {
-        write_json_value(writer, *(it->value), level, true);
+        json_write_value(writer, *(it->value), level, true);
         it = it->next;
 
         if (it) {
-            write_cstr(writer, ",");
+            json_write_cstr(writer, ",");
         }
 
-        write_cstr(writer, "\n");
+        json_write_cstr(writer, "\n");
     }
 
-    write_tabs(writer, level - 1);
-    write_cstr(writer, "]");
+    json_write_tabs(writer, level - 1);
+    json_write_cstr(writer, "]");
 }
 
 
 
-JsonError write_json(JsonValue* json, JsonWriter* writer) {
+JsonError json_write(JsonValue* json, JsonWriter* writer) {
     switch(json->kind) {
-        case JSON_VK_OBJECT: write_json_object(writer, json->object, 1); break;
-        case JSON_VK_ARRAY: write_json_array(writer, json->array, 1); break;
+        case JSON_VK_OBJECT: json_write_object(writer, json->object, 1); break;
+        case JSON_VK_ARRAY: json_write_array(writer, json->array, 1); break;
         default: return JSON_ERROR_INVALID_JSON;
     }
 
-    write_cstr(writer, "\n");
+    json_write_cstr(writer, "\n");
     darray_push(writer->buffer, 0x0);
 
     return JSON_ERROR_NONE;
@@ -1286,9 +1286,14 @@ JsonError write_json(JsonValue* json, JsonWriter* writer) {
 // ======================================================
 
 
-JsonError json_from_buffer(JsonValue* out, void* buffer, u64 length, JsonAllocator* allocator) {
+JsonError json_from_buffer(JsonValue** out, void* buffer, u64 length, JsonAllocator* allocator) {
     if (!allocator) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "allocator", "json_from_buffer");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_from_buffer");
         return JSON_ERROR_NULL_POINTER;
     }
 
@@ -1313,9 +1318,14 @@ JsonError json_from_buffer(JsonValue* out, void* buffer, u64 length, JsonAllocat
 }
 
 
-JsonError json_from_file(JsonValue* out, const char* path, JsonAllocator* allocator) {
+JsonError json_from_file(JsonValue** out, const char* path, JsonAllocator* allocator) {
     if (!allocator) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "allocator", "json_from_file");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_from_file");
         return JSON_ERROR_NULL_POINTER;
     }
 
@@ -1348,9 +1358,19 @@ JsonError json_from_file(JsonValue* out, const char* path, JsonAllocator* alloca
 }
 
 
-JsonError json_from_cstr(JsonValue* out, const char* cstr, JsonAllocator* allocator) {
+JsonError json_from_cstr(JsonValue** out, const char* cstr, JsonAllocator* allocator) {
     if (!allocator) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "allocator", "json_from_cstr");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!cstr) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "cstr", "json_from_cstr");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_from_cstr");
         return JSON_ERROR_NULL_POINTER;
     }
 
@@ -1368,7 +1388,7 @@ JsonError json_print(JsonValue* json) {
     JsonError error = JSON_ERROR_NONE;
     JsonWriter writer = json_writer_init();
     
-    error = write_json(json, &writer);
+    error = json_write(json, &writer);
     if (error) {
         json_repport_error(json_error_strings[JSON_ERROR_INVALID_JSON]);
         return error;
@@ -1388,9 +1408,15 @@ JsonError json_write_to_file(JsonValue* json, const char* path) {
         return JSON_ERROR_NULL_POINTER;
     }
 
+    if (!path) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "path", "json_write_to_file");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+
     JsonWriter writer = json_writer_init();
 
-    error = write_json(json, &writer);
+    error = json_write(json, &writer);
     if (error) {
         json_repport_error(json_error_strings[JSON_ERROR_INVALID_JSON]);
         json_writer_free(&writer);
@@ -1403,7 +1429,7 @@ JsonError json_write_to_file(JsonValue* json, const char* path) {
         return JSON_ERROR_INVALID_FILE_PATH;
     }
 
-    fwrite(writer.buffer, 1, darray_length(writer.buffer), file);
+    fwrite(writer.buffer, 1, darray_length(writer.buffer) - 1, file);
     json_writer_free(&writer);
 
     return error;
@@ -1449,7 +1475,7 @@ b8 json_is_array(JsonValue*   value) {
 
 
 
-JsonError json_get_string(JsonValue* value, JsonString* out) {
+JsonError json_get_string(JsonValue* value, JsonString** out) {
     if (!value) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "value", "json_get_string");
         return JSON_ERROR_NULL_POINTER;
@@ -1465,12 +1491,12 @@ JsonError json_get_string(JsonValue* value, JsonString* out) {
         return JSON_ERROR_TYPE_MISMATCH;
     }
 
-    *out = value->string;
+    *out = &value->string;
     return JSON_ERROR_NONE;
 }
 
 
-JsonError json_get_number(JsonValue* value, f64* out) {
+JsonError json_get_number(JsonValue* value, f64** out) {
     if (!value) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "value", "json_get_number");
         return JSON_ERROR_NULL_POINTER;
@@ -1486,12 +1512,12 @@ JsonError json_get_number(JsonValue* value, f64* out) {
         return JSON_ERROR_TYPE_MISMATCH;
     }
 
-    *out = value->number;
+    *out = &value->number;
     return JSON_ERROR_NONE;
 }
 
 
-JsonError json_get_boolean(JsonValue* value, b8* out) {
+JsonError json_get_boolean(JsonValue* value, b8** out) {
     if (!value) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "value", "json_get_boolean");
         return JSON_ERROR_NULL_POINTER;
@@ -1507,7 +1533,7 @@ JsonError json_get_boolean(JsonValue* value, b8* out) {
         return JSON_ERROR_TYPE_MISMATCH;
     }
 
-    *out = value->boolean;
+    *out = &value->boolean;
     return JSON_ERROR_NONE;
 }
 
@@ -1518,6 +1544,12 @@ JsonError json_create_string(JsonValue** out, const char* str, JsonAllocator* al
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "allocator", "json_create_string");
         return JSON_ERROR_NULL_POINTER;
     }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_create_string");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
     if (!str) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "string", "json_create_string");
         return JSON_ERROR_NULL_POINTER;
@@ -1547,6 +1579,11 @@ JsonError json_create_number(JsonValue** out, f64 num, JsonAllocator* alloc) {
         return JSON_ERROR_NULL_POINTER;
     }
 
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_create_number");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
     *out = (JsonValue*)json_allocator_alloc(alloc, sizeof(JsonValue));
 
     if (!(*out)) {
@@ -1563,6 +1600,11 @@ JsonError json_create_number(JsonValue** out, f64 num, JsonAllocator* alloc) {
 JsonError json_create_boolean(JsonValue** out, b8 boolean, JsonAllocator* alloc) {
     if (!alloc) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "allocator", "json_create_boolean");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_create_boolean");
         return JSON_ERROR_NULL_POINTER;
     }
 
@@ -1585,6 +1627,11 @@ JsonError json_create_null(JsonValue** out, JsonAllocator* alloc) {
         return JSON_ERROR_NULL_POINTER;
     }
 
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_create_null");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
     *out = (JsonValue*)json_allocator_alloc(alloc, sizeof(JsonValue));
 
     if (!(*out)) {
@@ -1600,6 +1647,11 @@ JsonError json_create_null(JsonValue** out, JsonAllocator* alloc) {
 JsonError json_create_object(JsonValue** out, JsonAllocator* alloc) {
     if (!alloc) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "allocator", "json_create_object");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_create_object");
         return JSON_ERROR_NULL_POINTER;
     }
 
@@ -1619,6 +1671,11 @@ JsonError json_create_object(JsonValue** out, JsonAllocator* alloc) {
 JsonError json_create_array(JsonValue** out, JsonAllocator* alloc) {
     if (!alloc) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "allocator", "json_create_array");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_create_array");
         return JSON_ERROR_NULL_POINTER;
     }
 
@@ -1767,7 +1824,7 @@ JsonError json_object_remove_at(JsonValue* object, u64 index) {
 }
 
 
-JsonError json_object_get(JsonValue* object, const char* key, JsonValue* out) {
+JsonError json_object_get(JsonValue* object, const char* key, JsonValue** out) {
     if (!out) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_object_get");
         return JSON_ERROR_NULL_POINTER;
@@ -1790,7 +1847,7 @@ JsonError json_object_get(JsonValue* object, const char* key, JsonValue* out) {
 
     while (it) {
         if (json_string_eq_cstr(it->key, key)) {
-            *out = *it->value;
+            *out = it->value;
             return JSON_ERROR_NONE;
         }
         it = it->next;
@@ -1800,7 +1857,7 @@ JsonError json_object_get(JsonValue* object, const char* key, JsonValue* out) {
     return JSON_ERROR_KEY_DOES_NOT_EXIST;
 }
 
-JsonError json_object_get_at(JsonValue* object, u64 index, JsonValue* out) {
+JsonError json_object_get_at(JsonValue* object, u64 index, JsonValue** out) {
     if (!out) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_object_get_at");
         return JSON_ERROR_NULL_POINTER;
@@ -1820,7 +1877,7 @@ JsonError json_object_get_at(JsonValue* object, u64 index, JsonValue* out) {
 
     while (it) {
         if (curr_index == index) {
-            *out = *it->value;
+            *out = it->value;
             return JSON_ERROR_NONE;
         }
         curr_index += 1;
@@ -1863,6 +1920,11 @@ JsonError json_object_length(JsonValue* object, u64* out) {
 JsonError json_object_iter_create(JsonValue* object, JsonObjectNode** out) {
     if (!object) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "object", "json_object_iter_create");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_object_iter_create");
         return JSON_ERROR_NULL_POINTER;
     }
 
@@ -1994,7 +2056,7 @@ JsonError json_array_remove_at(JsonValue* array, u64 index) {
 }
 
 
-JsonError json_array_get_at(JsonValue* array, u64 index, JsonValue* out) {
+JsonError json_array_get_at(JsonValue* array, u64 index, JsonValue** out) {
     if (!array) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "array", "json_array_get_at");
         return JSON_ERROR_NULL_POINTER;
@@ -2015,7 +2077,7 @@ JsonError json_array_get_at(JsonValue* array, u64 index, JsonValue* out) {
 
     while (it) {
         if (curr_index == index) {
-            *out = *it->value;
+            *out = it->value;
             return JSON_ERROR_NONE;
         }
 
@@ -2058,6 +2120,11 @@ JsonError json_array_length(JsonValue* array, u64* out) {
 JsonError json_array_iter_create(JsonValue *array, JsonArrayNode **out) {
     if (!array) {
         json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "array", "json_array_iter_create");
+        return JSON_ERROR_NULL_POINTER;
+    }
+
+    if (!out) {
+        json_repport_error(json_error_strings[JSON_ERROR_NULL_POINTER], "out", "json_array_iter_create");
         return JSON_ERROR_NULL_POINTER;
     }
 
