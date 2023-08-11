@@ -92,11 +92,8 @@ typedef struct JsonString {
 } JsonString;
 
 
-JsonError json_string_init(JsonString* out, uint8_t* buffer, uint64_t length, JsonAllocator* allocator);
-JsonError json_string_init_cstr(JsonString* out, const char* cstr, JsonAllocator* allocator);
 uint8_t json_string_eq(JsonString lhs, JsonString rhs);
 uint8_t json_string_eq_cstr(JsonString lhs, const char* rhs);
-
 
 
 
@@ -184,13 +181,12 @@ struct JsonObjectNode {
     JsonString key;
     JsonValue* value;
     struct JsonObjectNode* next;
-
 };
+
 
 struct JsonArrayNode {
     JsonValue* value;
     struct JsonArrayNode* next;
-
 };
 
 
