@@ -887,5 +887,5 @@ uint8_t json_string_eq_cstr(JsonString lhs, const char* rhs);
 
 
 # TODO
-- [ ] Add a way to validate if the parse jsons contains duplicates keys
+- [ ] Check if the parsed JSONs contains duplicate keys.
 - [ ] Implement a proper hash map for the JSON objects. Right now JSON objects are just a linked list of JSON values.
