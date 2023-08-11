@@ -12,20 +12,21 @@ This JSON library is designed for simplicity and ease of integration. To start u
 
 int main(void) {
     JsonAllocator allocator;
-
     JsonError error = json_allocator_init(&allocator);
+
     if (error) {
         return 1;
     }
 
-    JsonValue json;
-    error = json_from_file(&json, "file_path/file.json", &allocator);
+    JsonValue* json = NULL;
+    error = json_from_file(json, "file_path/file.json", &allocator);
+
     if (error) {
         printf("JSON_ERROR: %s \n", json_get_last_error());
         return 1;
     }
 
-    error = json_print(&json);
+    error = json_print(json);
 
     json_allocator_free(&allocator);
 }
@@ -35,6 +36,131 @@ More on how to use this library in the [Examples](#examples) and [Docs](#docs).
 
 # Examples
 
+### Creating a JSON object and printing it.
+```c
+#include "stdio.h"
+#include "stdlib.h"
+#include "json.h"
+
+#define json_check(error) \
+    if (error != JSON_ERROR_NONE) { \
+        printf("[JSON_ERROR][%d:%s]: %s\n", __LINE__, __FILE__, json_get_last_error()); \
+        exit(EXIT_FAILURE); \
+    } \
+
+int main(void) {
+    JsonAllocator allocator;
+    json_check(json_allocator_init(&allocator));
+
+    // create the object items
+    JsonValue* name = NULL;
+    json_check(json_create_string(&name, "redone", &allocator));
+
+    JsonValue* age = NULL;
+    json_check(json_create_number(&age, 21, &allocator));
+
+    JsonValue* null = NULL;
+    json_check(json_create_null(&null, &allocator));
+
+    JsonValue* array  = NULL;
+    json_check(json_create_array(&array, &allocator));
+
+    JsonValue* object = NULL;
+    json_check(json_create_object(&object, &allocator));
+
+    // create the actual object
+    JsonValue* json = NULL;
+    json_check(json_create_object(&json, &allocator));
+
+    // add the items to the json object
+    json_check(json_object_push(json, "name", name, &allocator));
+    json_check(json_object_push(json, "age", age, &allocator));
+    json_check(json_object_push(json, "null", null, &allocator));
+    json_check(json_object_push(json, "object", object, &allocator));
+    json_check(json_object_push(json, "array", array, &allocator));
+
+    // print it to the screen.
+    json_check(json_print(json));
+
+
+    json_alloactor_free(&allocator);
+    return 0;
+}
+```
+
+The terminal output:
+```
+{
+        "name": "redone",
+        "age": 21.000000,
+        "null": null,
+        "object": {},
+        "array": []
+}
+```
+
+
+### Modify a JSON file
+This code parses a JSON file and add new hobby to the hobbies array then save the JSON object back to the file.
+```json
+{
+        "name": "redone",
+        "age": 21,
+        "hobbies": [
+            "coding"
+        ]
+}
+```
+
+```c
+#include "stdio.h"
+#include "stdlib.h"
+#include "json.h"
+
+#define json_check(error) \
+    if (error != JSON_ERROR_NONE) { \
+        printf("[JSON_ERROR][%d:%s]: %s\n", __LINE__, __FILE__, json_get_last_error()); \
+        exit(EXIT_FAILURE); \
+    } \
+
+int main(void) {
+    JsonAllocator allocator;
+    json_check(json_allocator_init(&allocator));
+
+    // parse the JSON file
+    JsonValue* json = NULL;
+    json_check(json_from_file(&json, "./file.json", &allocator));
+
+    // get the hobbies array
+    JsonValue* hobbies = NULL;
+    json_check(json_object_get(json, "hobbies", &hobbies));
+
+    // create the new hobby 
+    JsonValue* art_hobby = NULL;
+    json_check(json_create_string(&art_hobby, "art", &allocator));
+
+    // add it to the hobbies array 
+    json_check(json_array_push(hobbies, art_hobby, &allocator));
+
+    // write it back to the file
+    json_check(json_write_to_file(json, "./file.json"));
+
+
+    json_allocator_free(&allocator);
+    return 0;
+}
+```
+the file content after the modfications:
+```json
+{
+        "name": "redone",
+        "age": 21,
+        "hobbies": [
+            "coding",
+            "art"
+        ]
+}
+```
 
 
 # Docs
@@ -381,7 +507,7 @@ typedef struct JsonAllocatorNode {
 ### json_from_file
 Parses the JSON data from a given file.
 ```c
-JsonError json_from_file(JsonValue* out, const char* path, JsonAllocator* allocator);
+JsonError json_from_file(JsonValue** out, const char* path, JsonAllocator* allocator);
 ```
 - `out`: A [JsonValue](#jsonvalue) pointer to the variable that will hold the JSON data.
 - `path`: A null-terminated string that represent the path to file to be parsed.
@@ -391,7 +517,7 @@ JsonError json_from_file(JsonValue* out, const char* path, JsonAllocator* alloca
 ### json_from_cstr
 Parses the JSON data from a given null terminated string.
 ```c
-JsonError json_from_cstr(JsonValue* out, const char* cstr, JsonAllocator* allocator);
+JsonError json_from_cstr(JsonValue** out, const char* cstr, JsonAllocator* allocator);
 ```
 - `out`: A [JsonValue](#jsonvalue) pointer to the variable that will hold the JSON data.
 - `cstr`: A null-terminated string that represent the JSON data.
@@ -401,7 +527,7 @@ JsonError json_from_cstr(JsonValue* out, const char* cstr, JsonAllocator* alloca
 ### json_from_buffer
 Parses the JSON data from a given null terminated string.
 ```c
-JsonError json_from_buffer(JsonValue* out, void* buffer, uint64_t length, JsonAllocator* allocator);
+JsonError json_from_buffer(JsonValue** out, void* buffer, uint64_t length, JsonAllocator* allocator);
 ```
 - `out`: A [JsonValue](#jsonvalue) pointer to the variable that will hold the JSON data.
 - `buffer`: A byte pointer to the buffer that holds the JSON data.
@@ -545,25 +671,25 @@ JsonError json_create_array(JsonValue** out, JsonAllocator* alloc);
 ### json_get_string
 Gets the actual value of a given JSON string.
 ```c
-JsonError json_get_string(JsonValue* value, JsonString* out);
+JsonError json_get_string(JsonValue* value, JsonString** out);
 ```
 - `value`: A [JsonValue](#jsonvalue) pointer to the JSON string.
-- `out`: A [JsonString](#jsonallocator) pointer to the variable that will hold the actual string value.
+- `out`: A [JsonString](#jsonstring) pointer to the variable that will hold the actual string value.
 
 
 ### json_get_number
 Gets the actual value of a given JSON number.
 ```c
-JsonError json_get_number(JsonValue* value, double* out);
+JsonError json_get_number(JsonValue* value, double** out);
 ```
 - `value`: A [JsonValue](#jsonvalue) pointer to the JSON string.
-- `out`: A 64bit Float pointer to the variable that will hold the actual number.
+- `out`: A 64bit Float pointer to the variable that will hold the actual number value.
 
 
 ### json_get_boolean
 Gets the actual value of a given JSON boolean.
 ```c
-JsonError json_get_boolean(JsonValue* value, uint8_t* out);
+JsonError json_get_boolean(JsonValue* value, uint8_t** out);
 ```
 - `value`: A [JsonValue](#jsonvalue) pointer to the JSON string.
 - `out`: A 8bit Integer pointer to the variable that will hold the actual boolean value.
@@ -611,7 +737,7 @@ JsonError json_object_remove_at(JsonValue* object, uint64_t index);
 ### json_object_get
 Gets an item from the JSON object.
 ```c
-JsonError json_object_get(JsonValue* object, const char* key, JsonValue* out);
+JsonError json_object_get(JsonValue* object, const char* key, JsonValue** out);
 ```
 - `object`: A [JsonValue](#jsonvalue) pointer to the JSON object to get the item from.
 - `key`: A null terminated string that represents the key of the item.
@@ -621,7 +747,7 @@ JsonError json_object_get(JsonValue* object, const char* key, JsonValue* out);
 ### json_object_get_at
 Gets an item at a given index from the JSON object.
 ```c
-JsonError json_object_get_at(JsonValue* object, uint64_t index, JsonValue* out);
+JsonError json_object_get_at(JsonValue* object, uint64_t index, JsonValue** out);
 ```
 - `object`: A [JsonValue](#jsonvalue) pointer to the JSON object to get the item from.
 - `index`: A 64bit integer that represents the index of the item.
@@ -677,7 +803,7 @@ JsonError json_array_remove_at(JsonValue* array, uint64_t index);
 ### json_array_get_at
 Gets an item at a given index from the JSON array.
 ```c
-JsonError json_array_get_at(JsonValue* array, uint64_t index, JsonValue* out);
+JsonError json_array_get_at(JsonValue* array, uint64_t index, JsonValue** out);
 ```
 - `array`: A [JsonValue](#jsonvalue) pointer to the JSON array to get the item from.
 - `index`: A 64bit integer that represents the index of the item in the array.
@@ -754,3 +880,12 @@ Checks if a JSON string and a null terminated string are equal.
 ```c
 uint8_t json_string_eq_cstr(JsonString lhs, const char* rhs);
 ```
+
+
+
+
+
+
+# TODO
+- [ ] Add a way to validate if the parse jsons contains duplicates keys
+- [ ] Implement a proper hash map for the JSON objects. Right now JSON objects are just a linked list of JSON values.
