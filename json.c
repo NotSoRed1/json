@@ -1673,6 +1673,11 @@ JsonError json_object_push(JsonValue* object, const char* key, JsonValue* value,
 
     JsonObjectNode* it = object->object;
     while (it->next) {
+        if (json_string_eq_cstr(it->next->key, key)) {
+            it->next->value = value;
+            return JSON_ERROR_NONE;
+        }
+
         it = it->next;
     }
 
